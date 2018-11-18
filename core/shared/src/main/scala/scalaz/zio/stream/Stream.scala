@@ -328,6 +328,45 @@ trait Stream[+E, +A] { self =>
   }
 
   /**
+   * Repeats the entire stream using the specified schedule. The stream will execute normally,
+   * and then repeat again according to the provided schedule.
+   */
+  def repeat(schedule: Schedule[Unit, _], clock: Clock = Clock.Live): Stream[E, A] =
+    new Stream[E, A] {
+      override def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]) = {
+        def loop(s: S, sched: schedule.State): IO[E1, S] =
+          self.foldLazy[E1, A1, S](s)(cont)(f).seq(schedule.update((), sched, clock)).flatMap {
+            case (s, decision) =>
+              if (decision.cont) IO.unit.delay(decision.delay) *> loop(s, decision.state)
+              else IO.now(s)
+          }
+
+        schedule.initial(clock).flatMap(loop(s, _))
+      }
+    }
+
+  /**
+   * Repeats elements of the stream using the provided schedule.
+   */
+  def repeatElems[B](schedule: Schedule[A, B], clock: Clock = Clock.Live): Stream[E, A] =
+    new Stream[E, A] {
+      override def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]) = {
+        def loop(s: S, sched: schedule.State, a: A): IO[E1, S] =
+          schedule.update(a, sched, clock).flatMap { decision =>
+            if (decision.cont)
+              IO.unit.delay(decision.delay) *> f(s, a).flatMap(loop(_, decision.state, a))
+            else IO.now(s)
+          }
+
+        schedule.initial(clock).flatMap { sched =>
+          self.foldLazy[E1, A, S](s)(cont) { (s, a) =>
+            loop(s, sched, a)
+          }
+        }
+      }
+    }
+
+  /**
    * Runs the sink on the stream to produce either the sink's result or an error.
    */
   def run[E1 >: E, A0, A1 >: A, B](sink: Sink[E1, A0, A1, B]): IO[E1, B] =
