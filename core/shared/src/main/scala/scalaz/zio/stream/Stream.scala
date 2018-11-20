@@ -248,7 +248,7 @@ trait Stream[+E, +A] { self =>
           putR   = (b: B) => queue.offer(Right(Take.Value(b))).void
           catchL = (e: E2) => queue.offer(Left(Take.Fail(e)))
           catchR = (e: E2) => queue.offer(Right(Take.Fail(e)))
-          endL   = queue.offer(Right(Take.End)).forever
+          endL   = queue.offer(Left(Take.End)).forever
           endR   = queue.offer(Right(Take.End)).forever
           _      <- (self.foreach(putL) *> endL).catchAll(catchL).fork
           _      <- (that.foreach(putR) *> endR).catchAll(catchR).fork
