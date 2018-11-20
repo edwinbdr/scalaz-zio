@@ -60,7 +60,7 @@ sealed trait Chunk[@specialized +A] { self =>
     val len = self.length
 
     var i = 0
-    while (f(self(i)) && i < len) {
+    while (i < len && f(self(i))) {
       i += 1
     }
 
@@ -108,7 +108,7 @@ sealed trait Chunk[@specialized +A] { self =>
       i += 1
     }
 
-    if (dest == null) Chunk.Empty
+    if (j == 0) Chunk.Empty
     else Chunk.Slice(Chunk.Arr(dest), 0, j)
   }
 
@@ -258,8 +258,10 @@ sealed trait Chunk[@specialized +A] { self =>
 
     builder.append(start)
 
-    var i = 0
-    while (i < self.length) {
+    var i   = 0
+    val len = self.length
+
+    while (i < len) {
       if (i != 0) builder.append(sep)
       builder.append(self(i).toString)
       i += 1
@@ -313,17 +315,20 @@ sealed trait Chunk[@specialized +A] { self =>
   }
 
   /**
-   * Take sthe first `n` elements of the chunk.
+   * Takes the first `n` elements of the chunk.
    */
   final def take(n: Int): Chunk[A] =
-    self match {
-      case Chunk.Slice(c, o, l) =>
-        Chunk.Slice(c, o, l - n - 1)
-      case c @ Chunk.Singleton(_) =>
-        if (n <= 0) Chunk.empty else c
-      case _ =>
-        Chunk.Slice(self, 0, n)
-    }
+    if (n <= 0) Chunk.Empty
+    else
+      self match {
+        case Chunk.Slice(c, o, l) =>
+          if (n >= l) this
+          else Chunk.Slice(c, o, n)
+        case c @ Chunk.Singleton(_) =>
+          c
+        case _ =>
+          Chunk.Slice(self, 0, n)
+      }
 
   /**
    * Takes all elements so long as the predicate returns true.
@@ -336,7 +341,8 @@ sealed trait Chunk[@specialized +A] { self =>
       i -= 1
     }
 
-    if (i == len - 1) self
+    if (i == -1) Chunk.Empty
+    else if (i == len - 1) self
     else Chunk.Slice(self, 0, i + 1)
   }
 
@@ -755,17 +761,17 @@ object Chunk {
 
     override def foreach(f: A => Unit): Unit = {
       var i = offset
-      while (i < (offset + length)) {
+      while (i < (offset + length + 1)) {
         f(chunk(i))
         i += 1
       }
     }
 
     override def toArray[A1 >: A](n: Int, dest: Array[A1]): Unit = {
-      var i = offset
+      var i = 0
       var j = n
 
-      while (i < (offset + length)) {
+      while (i < length) {
         dest(j) = apply(i)
 
         i += 1
