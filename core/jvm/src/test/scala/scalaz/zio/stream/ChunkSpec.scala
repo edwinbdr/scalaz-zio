@@ -17,14 +17,17 @@ class ChunkSpec extends Specification with ScalaCheck {
   dropWhile chunk $dropWhile
   dropWhile singleton chunk $dropWhileSingleton
   dropWhile slice chunk $dropWhileSlice
+  dropWhile array chunk $dropWhileArray
   takeWhile chunk $takeWhile
   takeWhile singleton chunk $takeWhileSingleton
   takeWhile slice chunk $takeWhileSlice
+  takeWhile array chunk $takeWhileArray
   An Array-based chunk that is filtered empty and mapped must not throw NPEs. $nullArrayBug
   toArray on concat of a slice must work properly. $toArrayOnConcatOfSlice
   toArray on concat of empty and integers must work properly. $toArrayOnConcatOfEmptyAndInts
   Chunk.filter that results in an empty Chunk must use Chunk.empty $filterConstFalseResultsInEmptyChunk
-  Chunk.slice toArray $sliceToArray
+  Chunk.Slice toArray $sliceToArray
+  Chunk.Slice foreach $sliceForeach
   """
 
   def chunkEquality =
@@ -107,8 +110,22 @@ class ChunkSpec extends Specification with ScalaCheck {
   def dropWhileSlice =
     Chunk(1, 2, 3, 4, 5).dropWhile(_ == 1).dropWhile(_ < 4) must_=== Chunk(4, 5)
 
+  def dropWhileArray =
+    Chunk(1, 2, 3, 4, 5).dropWhile(_ <= 3) must_=== Chunk(4, 5)
+
   def takeWhileSingleton =
     Chunk(1).takeWhile(_ == 1) must_=== Chunk(1)
 
   def takeWhileSlice = Chunk(1, 2, 3, 4, 5).takeWhile(_ <= 4).takeWhile(_ <= 2) must_=== Chunk(1, 2)
+
+  def takeWhileArray = Chunk(1, 2, 3, 4, 5).takeWhile(_ <= 3) must_=== Chunk(1, 2, 3)
+
+  def sliceForeach = {
+    var sum = 0
+
+    val c = Chunk(1, 1, 1, 1, 1).take(3)
+    c.foreach(sum += _)
+
+    sum must_=== 3
+  }
 }

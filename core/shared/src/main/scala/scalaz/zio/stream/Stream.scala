@@ -416,7 +416,7 @@ trait Stream[+E, +A] { self =>
    * Takes the specified number of elements from this stream.
    */
   final def take(n: Int): Stream[E, A] =
-    self.zipWithIndex.takeWhile(_._2 == n - 1).map(_._1)
+    self.zipWithIndex.takeWhile(_._2 < n).map(_._1)
 
   /**
    * Takes all elements of the stream for as long as the specified predicate
@@ -691,8 +691,12 @@ object Stream {
       override def fold[E1 >: E, A1 >: A, S2](s2: S2)(f: (S2, A1) => IO[E1, Step[S2]]): IO[E1, Step[S2]] = {
         def loop(s: S, s2: S2): IO[E1, Step[(S, S2)]] =
           f0(s).flatMap {
-            case None         => IO.now(Step.Stop((s, s2)))
-            case Some((a, s)) => f(s2, a).map(_.map(s2 => (s, s2)))
+            case None => IO.now(Step.Stop((s, s2)))
+            case Some((a, s)) =>
+              f(s2, a).flatMap {
+                case Step.Stop(s2) => IO.now(Step.Stop((s, s2)))
+                case Step.Cont(s2) => loop(s, s2)
+              }
           }
 
         loop(s, s2).map(_.map(_._2))
@@ -707,8 +711,12 @@ object Stream {
       override def fold[E, A1 >: A, S2](s2: S2)(f: (S2, A1) => IO[E, Step[S2]]): IO[E, Step[S2]] = {
         def loop(s: S, s2: S2): IO[E, Step[(S, S2)]] =
           f0(s) match {
-            case None         => IO.now(Step.Stop((s, s2)))
-            case Some((a, s)) => f(s2, a).map(_.map(s2 => (s, s2)))
+            case None => IO.now(Step.Stop((s, s2)))
+            case Some((a, s)) =>
+              f(s2, a).flatMap {
+                case Step.Stop(s2) => IO.now(Step.Stop((s, s2)))
+                case Step.Cont(s2) => loop(s, s2)
+              }
           }
 
         loop(s, s2).map(_.map(_._2))
@@ -717,8 +725,12 @@ object Stream {
       override def foldPure[A1 >: A, S2](s2: S2)(f: (S2, A1) => Step[S2]): Step[S2] = {
         def loop(s: S, s2: S2): Step[(S, S2)] =
           f0(s) match {
-            case None         => Step.Stop((s, s2))
-            case Some((a, s)) => f(s2, a).map(s2 => (s, s2))
+            case None => Step.Stop((s, s2))
+            case Some((a, s)) =>
+              f(s2, a) match {
+                case Step.Stop(s2) => Step.Stop((s, s2))
+                case Step.Cont(s2) => loop(s, s2)
+              }
           }
 
         loop(s, s2).map(_._2)

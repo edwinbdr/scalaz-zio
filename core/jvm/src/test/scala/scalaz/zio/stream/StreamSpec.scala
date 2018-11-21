@@ -6,13 +6,17 @@ import scalaz.zio.{ AbstractRTSSpec, GenIO, IO }
 
 class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   def is = "StreamSpec".title ^ s2"""
-  PureStream.filter $filter
-  PureStream.dropWhile $dropWhile
-  PureStream.takeWhile $takeWhile
-  PureStream.map $map
-  PureStream.mapConcat $mapConcat
-  PureStream.zipWithIndex $zipWithIndex
-  PureStream.scan $scan
+  PureStream.filter       $filter
+  PureStream.dropWhile    $dropWhile
+  PureStream.takeWhile    $takeWhile
+  PureStream.map          $map
+  PureStream.mapConcat    $mapConcat
+  PureStream.scan         $scan
+  Stream.unfold           $unfold
+  Stream.unfoldM          $unfoldM
+  Stream.range            $range
+  Stream.take             $take
+  Stream.zipWithIndex     $zipWithIndex
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -56,5 +60,25 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   def scan = {
     val stream = Stream(1, 1, 1).scan(0)((acc, el) => (acc + el, acc + el))
     (slurp(stream) must_=== List(1, 2, 3)) and (slurpM(stream) must_=== List(1, 2, 3))
+  }
+
+  def unfold = {
+    val s = Stream.unfold(0)(i => if (i < 10) Some((i, i + 1)) else None)
+    slurp(s) must_=== (0 to 9).toList and (slurpM(s) must_=== (0 to 9).toList)
+  }
+
+  def unfoldM = {
+    val s = Stream.unfoldM(0)(i => if (i < 10) IO.now(Some((i, i + 1))) else IO.now(None))
+    slurp(s) must_=== (0 to 9).toList and (slurpM(s) must_=== (0 to 9).toList)
+  }
+
+  def range = {
+    val s = Stream.range(0, 9)
+    slurp(s) must_=== (0 to 9).toList and (slurpM(s) must_=== (0 to 9).toList)
+  }
+
+  def take = {
+    val s = Stream.range(0, 9).take(3)
+    slurp(s) must_=== (0 to 2).toList and (slurpM(s) must_=== (0 to 2).toList)
   }
 }
