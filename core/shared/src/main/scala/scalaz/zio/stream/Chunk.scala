@@ -65,6 +65,7 @@ sealed trait Chunk[@specialized +A] { self =>
     }
 
     if (i == len) Chunk.empty
+    else if (i == 0) this
     else Chunk.Slice(self, i, len - i)
   }
 
@@ -336,14 +337,14 @@ sealed trait Chunk[@specialized +A] { self =>
   def takeWhile(f: A => Boolean): Chunk[A] = {
     val len = self.length
 
-    var i = len - 1
-    while (!f(self(i)) && i >= 0) {
-      i -= 1
+    var i = 0
+    while (i < len && f(self(i))) {
+      i += 1
     }
 
-    if (i == -1) Chunk.Empty
-    else if (i == len - 1) self
-    else Chunk.Slice(self, 0, i + 1)
+    if (i == 0) Chunk.Empty
+    else if (i == len) this
+    else Chunk.Slice(this, 0, i)
   }
 
   /**
@@ -561,11 +562,12 @@ object Chunk {
       val len  = self.length
 
       var i = 0
-      while (f(self(i)) && i < len) {
+      while (i < len && f(self(i))) {
         i += 1
       }
 
       if (i == len) Chunk.empty
+      else if (i == 0) this
       else Chunk.Slice(this, i, len - i)
     }
 
@@ -685,13 +687,14 @@ object Chunk {
       val self = array
       val len  = self.length
 
-      var i = len - 1
-      while (!f(self(i)) && i >= 0) {
-        i -= 1
+      var i = 0
+      while (i < len && f(self(i))) {
+        i += 1
       }
 
-      if (i == len - 1) this
-      else Chunk.Slice(this, 0, i + 1)
+      if (i == 0) Chunk.Empty
+      else if (i == len) this
+      else Chunk.Slice(this, 0, i)
     }
 
     override def toArray[A1 >: A]: Array[A1] = array.asInstanceOf[Array[A1]]
@@ -760,9 +763,9 @@ object Chunk {
     override def apply(n: Int): A = chunk.apply(offset + n)
 
     override def foreach(f: A => Unit): Unit = {
-      var i = offset
-      while (i < (offset + length + 1)) {
-        f(chunk(i))
+      var i = 0
+      while (i < length) {
+        f(apply(i))
         i += 1
       }
     }
