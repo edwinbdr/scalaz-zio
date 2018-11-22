@@ -105,13 +105,13 @@ trait Stream[+E, +A] { self =>
    * evaluates to `true`.
    */
   def dropWhile(pred: A => Boolean): Stream[E, A] = new Stream[E, A] {
-    override def fold[E1 >: E, A1 >: A, S](s: S)(f: (S, A1) => IO[E1, Step[S]]): IO[E1, Step[S]] =
-      (self
-        .fold[E1, A, (Boolean, S)](true -> s) {
-          case ((true, s), a) if pred(a) => IO.now(Step.Cont(true   -> s))
-          case ((_, s), a)               => f(s, a).map(_.map(false -> _))
-        })
-        .map(_.map(_._2))
+    override def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]): IO[E1, S] =
+      self
+        .foldLazy[E1, A, (Boolean, S)](true -> s)(tp => cont(tp._2)) {
+          case ((true, s), a) if pred(a) => IO.now(true       -> s)
+          case ((_, s), a)               => f(s, a).map(false -> _)
+        }
+        .map(_._2)
   }
 
   /**
@@ -119,8 +119,8 @@ trait Stream[+E, +A] { self =>
    * concatenation of those streams.
    */
   final def flatMap[E1 >: E, B](f0: A => Stream[E1, B]): Stream[E1, B] = new Stream[E1, B] {
-    override def fold[E2 >: E1, B1 >: B, S](s: S)(f: (S, B1) => IO[E2, Step[S]]): IO[E2, Step[S]] =
-      self.fold[E2, A, S](s)((s, a) => f0(a).fold[E2, B1, S](s)(f))
+    override def foldLazy[E2 >: E1, B1 >: B, S](s: S)(cont: S => Boolean)(f: (S, B1) => IO[E2, S]): IO[E2, S] =
+      self.foldLazy[E2, A, S](s)(cont)((s, a) => f0(a).foldLazy[E2, B1, S](s)(cont)(f))
   }
 
   /**
@@ -134,11 +134,11 @@ trait Stream[+E, +A] { self =>
    */
   def forever: Stream[E, A] =
     new Stream[E, A] {
-      override def fold[E1 >: E, A1 >: A, S](s: S)(f: (S, A1) => IO[E1, Step[S]]): IO[E1, Step[S]] = {
-        def loop(s: S): IO[E1, Step[S]] =
-          self.fold[E1, A, S](s)(f).flatMap {
-            case s @ Step.Stop(_) => IO.now(s)
-            case Step.Cont(s)     => loop(s)
+      override def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]): IO[E1, S] = {
+        def loop(s: S): IO[E1, S] =
+          self.foldLazy[E1, A, S](s)(cont)(f) flatMap { s =>
+            if (cont(s)) loop(s)
+            else IO.now(s)
           }
 
         loop(s)
@@ -152,18 +152,22 @@ trait Stream[+E, +A] { self =>
     f0: (IO[E1, Option[A]], IO[E1, Option[B]]) => IO[E1, Option[C]]
   ): Stream[E1, C] =
     new Stream[E1, C] {
-      override def fold[E2 >: E1, A1 >: C, S](s: S)(f: (S, A1) => IO[E2, Step[S]]): IO[E2, Step[S]] = {
-        def loop(q1: Queue[Take[E1, A]], q2: Queue[Take[E1, B]], s: S): IO[E2, Step[S]] =
-          f0(Take.option(q1.take), Take.option(q2.take)).flatMap {
-            case None => IO.now(Step.Stop(s))
+      override def foldLazy[E2 >: E1, A1 >: C, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E2, S]): IO[E2, S] = {
+        def loop(q1: Queue[Take[E1, A]], q2: Queue[Take[E1, B]], s: S): IO[E2, S] =
+          f0(Take.option(q1.take), Take.option(q2.take)) flatMap {
+            case None => IO.now(s)
             case Some(c) =>
-              f(s, c).flatMap {
-                case Step.Cont(s) => loop(q1, q2, s)
-                case s            => IO.now(s)
+              f(s, c) flatMap { s =>
+                if (cont(s)) loop(q1, q2, s)
+                else IO.now(s)
               }
           }
 
-        self.toQueue[E1, A](lc).use(q1 => that.toQueue[E1, B](rc).use(q2 => loop(q1, q2, s)))
+        self.toQueue[E1, A](lc).use { q1 =>
+          that.toQueue[E1, B](rc).use { q2 =>
+            loop(q1, q2, s)
+          }
+        }
       }
     }
 
@@ -180,25 +184,16 @@ trait Stream[+E, +A] { self =>
    * this stream.
    */
   def mapConcat[B](f0: A => Chunk[B]): Stream[E, B] = new Stream[E, B] {
-    override def fold[E1 >: E, B1 >: B, S](s: S)(f: (S, B1) => IO[E1, Step[S]]): IO[E1, Step[S]] = {
-      def loop(s: S, c: Chunk[B], i: Int): IO[E1, Step[S]] =
-        if (i >= c.length) IO.now(Step.cont(s))
-        else
-          f(s, c(i)) flatMap {
-            case Step.Cont(s) => loop(s, c, i + 1)
-            case s            => IO.now(s)
-          }
-
-      self.fold[E1, A, S](s)((s, a) => loop(s, f0(a), 0))
-    }
+    override def foldLazy[E1 >: E, B1 >: B, S](s: S)(cont: S => Boolean)(f: (S, B1) => IO[E1, S]): IO[E1, S] =
+      self.foldLazy[E1, A, S](s)(cont)((s, a) => f0(a).foldMLazy(IO.now(s))(cont)(f))
   }
 
   /**
    * Maps over elements of the stream with the specified effectful function.
    */
   final def mapM[E1 >: E, B](f0: A => IO[E1, B]): Stream[E1, B] = new Stream[E1, B] {
-    override def fold[E2 >: E1, B1 >: B, S](s: S)(f: (S, B1) => IO[E2, Step[S]]): IO[E2, Step[S]] =
-      self.fold[E2, A, S](s)((s, a) => f0(a).flatMap(f(s, _)))
+    override def foldLazy[E2 >: E1, B1 >: B, S](s: S)(cont: S => Boolean)(f: (S, B1) => IO[E2, S]): IO[E2, S] =
+      self.foldLazy[E2, A, S](s)(cont)((s, a) => f0(a).flatMap(f(s, _)))
   }
 
   /**

@@ -21,6 +21,9 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   Stream.foreach0         $foreach0
   Stream.foreach          $foreach
   Stream.collect          $collect
+  Stream.flatMap          $flatMap
+  Stream.forever          $forever
+  Stream.joinWith         $joinWith
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -123,5 +126,30 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
     }
 
     slurp(s) must_=== List(2) and (slurpM(s) must_=== List(2))
+  }
+
+  def flatMap = {
+    val s = Stream(1, 1).flatMap(a => Stream(a, a))
+
+    slurp(s) must_=== List(1, 1, 1, 1) and (slurpM(s) must_=== List(1, 1, 1, 1))
+  }
+
+  def forever = {
+    var sum = 0
+    val s   = Stream(1).forever.foreach0(a => IO.sync { sum += a; if (sum >= 9) false else true })
+
+    unsafeRun(s)
+    sum must_=== 9
+  }
+
+  def joinWith = {
+    val s1 = Stream(1, 1)
+    val s2 = Stream(2, 2)
+    val join = s1.joinWith(s2, 1, 1)(
+      (a: IO[Nothing, Option[Int]], b: IO[Nothing, Option[Int]]) =>
+        a.seqWith(b)((a, b) => a flatMap (a => b map ((a, _))))
+    )
+
+    slurp(join) must_=== List((1, 2), (1, 2)) and (slurpM(join) must_=== List((1, 2), (1, 2)))
   }
 }
