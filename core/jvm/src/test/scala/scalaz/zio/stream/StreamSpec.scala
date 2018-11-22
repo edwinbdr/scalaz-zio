@@ -17,6 +17,10 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   Stream.range            $range
   Stream.take             $take
   Stream.zipWithIndex     $zipWithIndex
+  Stream.++               $concat
+  Stream.foreach0         $foreach0
+  Stream.foreach          $foreach
+  Stream.collect          $collect
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -80,5 +84,44 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   def take = {
     val s = Stream.range(0, 9).take(3)
     slurp(s) must_=== (0 to 2).toList and (slurpM(s) must_=== (0 to 2).toList)
+  }
+
+  def concat = {
+    val s = Stream(1, 2, 3) ++ Stream(4, 5, 6)
+    slurp(s) must_=== (1 to 6).toList and (slurpM(s) must_=== (1 to 6).toList)
+  }
+
+  def foreach0 = {
+    var sum = 0
+    val s   = Stream(1, 1, 1, 1, 1, 1)
+
+    unsafeRun(
+      s.foreach0(
+        a =>
+          IO.sync(
+            if (sum >= 3) false
+            else {
+              sum += a; true
+            }
+          )
+      )
+    )
+    sum must_=== 3
+  }
+
+  def foreach = {
+    var sum = 0
+    val s   = Stream(1, 1, 1, 1, 1)
+
+    unsafeRun(s.foreach(a => IO.sync(sum += a)))
+    sum must_=== 5
+  }
+
+  def collect = {
+    val s = Stream(Left(1), Right(2), Left(3)).collect {
+      case Right(n) => n
+    }
+
+    slurp(s) must_=== List(2) and (slurpM(s) must_=== List(2))
   }
 }

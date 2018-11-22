@@ -55,16 +55,16 @@ trait StreamChunk[+E, @specialized +A] { self =>
 
   def filterNot(pred: A => Boolean): StreamChunk[E, A] = filter(!pred(_))
 
-  final def foreach0[E1 >: E, A1 >: A](f: A1 => IO[E1, Boolean]): IO[E1, Unit] =
-    chunks.foreach0[E1, Chunk[A1]] { as =>
+  final def foreach0[E1 >: E](f: A => IO[E1, Boolean]): IO[E1, Unit] =
+    chunks.foreach0[E1] { as =>
       as.foldM(true) { (p, a) =>
         if (p) f(a)
         else IO.point(p)
       }
     }
 
-  final def foreach[E1 >: E, A1 >: A](f: A1 => IO[E1, Unit]): IO[E1, Unit] =
-    foreach0[E1, A1](f(_).const(true))
+  final def foreach[E1 >: E](f: A => IO[E1, Unit]): IO[E1, Unit] =
+    foreach0[E1](f(_).const(true))
 
   final def withEffect[E1 >: E, A1 >: A](f0: A1 => IO[E1, Unit]): StreamChunk[E1, A] =
     StreamChunk(chunks.withEffect[E1, Chunk[A1]] { as =>

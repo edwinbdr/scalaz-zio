@@ -44,10 +44,10 @@ trait Stream[+E, +A] { self =>
    */
   final def ++[E1 >: E, A1 >: A](that: => Stream[E1, A1]): Stream[E1, A1] =
     new Stream[E1, A1] {
-      override def fold[E2 >: E1, A2 >: A1, S](s: S)(f: (S, A2) => IO[E2, Step[S]]): IO[E2, Step[S]] =
-        self.fold[E2, A, S](s)(f).flatMap {
-          case Step.Cont(s) => that.fold[E2, A1, S](s)(f)
-          case s            => IO.now(s)
+      override def foldLazy[E2 >: E1, A2 >: A1, S](s: S)(cont: S => Boolean)(f: (S, A2) => IO[E2, S]): IO[E2, S] =
+        self.foldLazy[E2, A, S](s)(cont)(f).flatMap { s =>
+          if (cont(s)) that.foldLazy[E2, A1, S](s)(cont)(f)
+          else IO.now(s)
         }
     }
 
@@ -73,22 +73,25 @@ trait Stream[+E, +A] { self =>
    * Consumes elements of the stream, passing them to the specified callback,
    * and terminating consumption when the callback returns `false`.
    */
-  final def foreach0[E1 >: E, A1 >: A](f: A1 => IO[E1, Boolean]): IO[E1, Unit] = {
-    val Cont = Step.Cont(IO.unit)
-    val Stop = Step.Stop(IO.unit)
-
-    IO.flatten(
-      fold[E1, A, IO[E1, Unit]](IO.unit)((io, a) => (io *> f(a)).map(b => if (b) Cont else Stop)).map(_.extract)
-    )
-  }
+  final def foreach0[E1 >: E](f: A => IO[E1, Boolean]): IO[E1, Unit] =
+    self
+      .foldLazy[E1, A, Boolean](true)(identity)(
+        (cont, a) =>
+          if (cont) f(a)
+          else IO.now(cont)
+      )
+      .void
 
   /**
    * Performs a filter and map in a single step.
    */
   def collect[B](pf: PartialFunction[A, B]): Stream[E, B] =
     new Stream[E, B] {
-      override def fold[E1 >: E, B1 >: B, S](s: S)(f: (S, B1) => IO[E1, Step[S]]): IO[E1, Step[S]] =
-        self.fold[E1, A, S](s)((s, a) => if (pf.isDefinedAt(a)) f(s, pf(a)) else IO.now(Step.Cont(s)))
+      override def foldLazy[E1 >: E, B1 >: B, S](s: S)(cont: S => Boolean)(f: (S, B1) => IO[E1, S]): IO[E1, S] =
+        self.foldLazy[E1, A, S](s)(cont) { (s, a) =>
+          if (pf isDefinedAt a) f(s, pf(a))
+          else IO.now(s)
+        }
     }
 
   /**
@@ -123,7 +126,7 @@ trait Stream[+E, +A] { self =>
   /**
    * Consumes all elements of the stream, passing them to the specified callback.
    */
-  final def foreach[E1 >: E, A1 >: A](f: A1 => IO[E1, Unit]): IO[E1, Unit] =
+  final def foreach[E1 >: E](f: A => IO[E1, Unit]): IO[E1, Unit] =
     foreach0(f.andThen(_.const(true)))
 
   /**
@@ -436,7 +439,7 @@ trait Stream[+E, +A] { self =>
       queue    <- Managed.liftIO(Queue.bounded[Take[E1, A1]](capacity))
       offerVal = (a: A) => queue.offer(Take.Value(a)).void
       offerErr = (e: E) => queue.offer(Take.Fail(e))
-      enqueuer = (self.foreach[E, A](offerVal).catchAll(offerErr) *> queue.offer(Take.End).forever).fork
+      enqueuer = (self.foreach[E](offerVal).catchAll(offerErr) *> queue.offer(Take.End).forever).fork
       _        <- Managed(enqueuer)(_.interrupt)
     } yield queue
 
