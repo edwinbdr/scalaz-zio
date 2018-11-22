@@ -185,7 +185,7 @@ trait Stream[+E, +A] { self =>
    */
   def mapConcat[B](f0: A => Chunk[B]): Stream[E, B] = new Stream[E, B] {
     override def foldLazy[E1 >: E, B1 >: B, S](s: S)(cont: S => Boolean)(f: (S, B1) => IO[E1, S]): IO[E1, S] =
-      self.foldLazy[E1, A, S](s)(cont)((s, a) => f0(a).foldMLazy(IO.now(s))(cont)(f))
+      self.foldLazy[E1, A, S](s)(cont)((s, a) => f0(a).foldMLazy(s)(cont)(f))
   }
 
   /**

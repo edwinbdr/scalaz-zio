@@ -25,7 +25,7 @@ trait StreamChunk[+E, @specialized +A] { self =>
 
   def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]): IO[E1, S] =
     chunks.foldLazy[E1, Chunk[A1], S](s)(cont) { (s, as) =>
-      as.foldMLazy(IO.now(s))(cont)(f)
+      as.foldMLazy(s)(cont)(f)
     }
 
   def foldLeft[A1 >: A, S](s: S)(f: (S, A1) => S): IO[E, S] =

@@ -152,7 +152,7 @@ sealed trait Chunk[@specialized +A] { self =>
     }
   }
 
-  final def foldMLazy[E, S](z: IO[E, S])(pred: S => Boolean)(f: (S, A) => IO[E, S]): IO[E, S] = {
+  final def foldMLazy[E, S](z: S)(pred: S => Boolean)(f: (S, A) => IO[E, S]): IO[E, S] = {
     val len = length
 
     def loop(s: S, i: Int): IO[E, S] =
@@ -162,7 +162,7 @@ sealed trait Chunk[@specialized +A] { self =>
         else IO.now(s)
       }
 
-    z.flatMap(loop(_, 0))
+    loop(z, 0)
   }
 
   final def foldLeftLazy[S](z: S)(pred: S => Boolean)(f: (S, A) => S): S = {
