@@ -24,6 +24,9 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   Stream.flatMap          $flatMap
   Stream.forever          $forever
   Stream.joinWith         $joinWith
+  Stream.merge            $merge
+  Stream.mergeEither      $mergeEither
+  Stream.mergeWith        $mergeWith
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -151,5 +154,32 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
     )
 
     slurp(join) must_=== List((1, 2), (1, 2)) and (slurpM(join) must_=== List((1, 2), (1, 2)))
+  }
+
+  def merge = {
+    val s1 = Stream(Left(1), Left(2))
+    val s2 = Stream(Right(1), Right(2))
+
+    val merge = s1.merge(s2)
+
+    slurpM(merge) must containTheSameElementsAs(List(Left(1), Left(2), Right(1), Right(2)))
+  }
+
+  def mergeEither = {
+    val s1 = Stream(1, 2)
+    val s2 = Stream(1, 2)
+
+    val merge = s1.mergeEither(s2)
+
+    slurpM(merge) must containTheSameElementsAs(List(Left(1), Left(2), Right(1), Right(2)))
+  }
+
+  def mergeWith = {
+    val s1 = Stream(1, 2)
+    val s2 = Stream(1, 2)
+
+    val merge = s1.mergeWith(s2)(_.toString, _.toString)
+
+    slurpM(merge) must containTheSameElementsAs(List("1", "2", "1", "2"))
   }
 }
