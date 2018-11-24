@@ -21,7 +21,7 @@ class ChunkSpec extends Specification with ScalaCheck {
   takeWhile chunk $takeWhile
   toArray $toArray
   foreach $foreach
-  concat chunk $concatChunk
+  concat chunk $concat
   An Array-based chunk that is filtered empty and mapped must not throw NPEs. $nullArrayBug
   toArray on concat of a slice must work properly. $toArrayOnConcatOfSlice
   toArray on concat of empty and integers must work properly. $toArrayOnConcatOfEmptyAndInts
@@ -94,7 +94,7 @@ class ChunkSpec extends Specification with ScalaCheck {
     c.filter(_ => false).map(_ * 2).length must_=== 0
   }
 
-  private def concatChunk = prop { (c1: Chunk[Int], c2: Chunk[Int]) =>
+  private def concat = prop { (c1: Chunk[Int], c2: Chunk[Int]) =>
     (c1 ++ c2).toSeq must_=== (c1.toSeq ++ c2.toSeq)
   }
 
