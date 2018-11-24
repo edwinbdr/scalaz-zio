@@ -702,10 +702,11 @@ object Chunk {
       * Takes all elements so long as the predicate returns true.
       */
     override def takeWhile(f: A => Boolean): Chunk[A] = {
+      val self = array
       val len = length
 
       var i = 0
-      while (i < len && f(apply(i))) {
+      while (i < len && f(self(i))) {
         i += 1
       }
 
