@@ -4,14 +4,14 @@ import org.specs2.ScalaCheck
 import scala.{ Stream => _ }
 import scalaz.zio.{ AbstractRTSSpec, GenIO, IO }
 
-class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
+class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends AbstractRTSSpec with GenIO with ScalaCheck {
   def is = "StreamSpec".title ^ s2"""
   PureStream.filter       $filter
   PureStream.dropWhile    $dropWhile
   PureStream.takeWhile    $takeWhile
   PureStream.map          $map
   PureStream.mapConcat    $mapConcat
-  PureStream.scan         $scan
+  Stream.scan             $scan
   Stream.unfold           $unfold
   Stream.unfoldM          $unfoldM
   Stream.range            $range
@@ -27,6 +27,8 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
   Stream.merge            $merge
   Stream.mergeEither      $mergeEither
   Stream.mergeWith        $mergeWith
+  Stream.scanM            $scanM
+  Stream.transduce        $transduce
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -69,6 +71,11 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
 
   def scan = {
     val stream = Stream(1, 1, 1).scan(0)((acc, el) => (acc + el, acc + el))
+    (slurp(stream) must_=== List(1, 2, 3)) and (slurpM(stream) must_=== List(1, 2, 3))
+  }
+
+  def scanM = {
+    val stream = Stream(1, 1, 1).scanM(0)((acc, el) => IO.now((acc + el, acc + el)))
     (slurp(stream) must_=== List(1, 2, 3)) and (slurpM(stream) must_=== List(1, 2, 3))
   }
 
@@ -181,5 +188,13 @@ class StreamSpec extends AbstractRTSSpec with GenIO with ScalaCheck {
     val merge = s1.mergeWith(s2)(_.toString, _.toString)
 
     slurpM(merge) must containTheSameElementsAs(List("1", "2", "1", "2"))
+  }
+
+  def transduce = {
+    val s = Stream('1', '2', ',', '3', '4')
+    val parser = Sink.readWhile[Char](_.isDigit).map(_.mkString.toInt) <* Sink.readWhile(_ == ',')
+    val transduced = s.transduce(parser)
+
+    slurpM(transduced) must_=== List(12, 34)
   }
 }

@@ -4,8 +4,9 @@ import org.specs2._
 import org.specs2.specification.core.SpecStructure
 
 class ChunkSpec extends Specification with ScalaCheck {
-  def is: SpecStructure = "ChunkSpec".title ^
-    s2"""
+  def is: SpecStructure =
+    "ChunkSpec".title ^
+      s2"""
   chunk apply $apply
   chunk length $length
   chunk equality prop $equality
@@ -34,7 +35,7 @@ class ChunkSpec extends Specification with ScalaCheck {
   private def apply = {
     implicit val chunkGen: Gen[(Chunk[Int], Int)] = for {
       chunk <- Arbitrary.arbitrary[Chunk[Int]].filter(_.length > 0)
-      len <- Gen.chooseNum(0, chunk.length - 1)
+      len   <- Gen.chooseNum(0, chunk.length - 1)
     } yield (chunk, len)
 
     prop { t: (Chunk[Int], Int) =>
@@ -43,7 +44,9 @@ class ChunkSpec extends Specification with ScalaCheck {
   }
 
   private def length =
-    prop { chunk: Chunk[Int] => chunk.length must_=== chunk.toSeq.length }
+    prop { chunk: Chunk[Int] =>
+      chunk.length must_=== chunk.toSeq.length
+    }
 
   private def equality =
     prop((c1: Chunk[Int], c2: Chunk[Int]) => c1.equals(c2) must_=== c1.toSeq.equals(c2.toSeq))
@@ -62,7 +65,9 @@ class ChunkSpec extends Specification with ScalaCheck {
     }
 
   private def materialize =
-    prop { c: Chunk[Int] => c.materialize.toSeq must_=== c.toSeq }
+    prop { c: Chunk[Int] =>
+      c.materialize.toSeq must_=== c.toSeq
+    }
 
   private def foldLeft =
     prop { (s0: String, f: (String, Int) => String, c: Chunk[Int]) =>
@@ -80,9 +85,8 @@ class ChunkSpec extends Specification with ScalaCheck {
     }
 
   private def take =
-    prop {
-      (c: Chunk[Int], n: Int) =>
-        c.take(n).toSeq must_=== c.toSeq.take(n)
+    prop { (c: Chunk[Int], n: Int) =>
+      c.take(n).toSeq must_=== c.toSeq.take(n)
     }
 
   private def nullArrayBug = {
@@ -116,9 +120,8 @@ class ChunkSpec extends Specification with ScalaCheck {
     Chunk.fromArray(Array(1, 2, 3)).filter(_ => false) must_=== Chunk.empty
 
   private def dropWhile =
-    prop {
-      (c: Chunk[Int], p: Int => Boolean) =>
-        c.dropWhile(p).toSeq must_=== c.toSeq.dropWhile(p)
+    prop { (c: Chunk[Int], p: Int => Boolean) =>
+      c.dropWhile(p).toSeq must_=== c.toSeq.dropWhile(p)
     }
 
   private def takeWhile = prop { (c: Chunk[Int], p: Int => Boolean) =>

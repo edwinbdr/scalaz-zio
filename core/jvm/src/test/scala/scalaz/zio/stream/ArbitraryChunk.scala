@@ -1,6 +1,6 @@
 package scalaz.zio.stream
 
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{ Arbitrary, Gen }
 
 import scala.reflect.ClassTag
 
@@ -14,13 +14,13 @@ object ArbitraryChunk {
         Arbitrary.arbitrary[Seq[T]].map(seqT => Chunk.fromArray(seqT.toArray)),
         Gen.lzy {
           for {
-            arr <- arbChunk.arbitrary
+            arr  <- arbChunk.arbitrary
             left <- Gen.choose[Int](0, arr.length)
           } yield arr.take(left)
         },
         Gen.lzy {
           for {
-            left <- arbChunk.arbitrary
+            left  <- arbChunk.arbitrary
             right <- arbChunk.arbitrary
           } yield left ++ right
         }
