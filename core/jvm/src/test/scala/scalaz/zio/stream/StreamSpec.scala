@@ -5,6 +5,8 @@ import scala.{ Stream => _ }
 import scalaz.zio.{ AbstractRTSSpec, GenIO, IO }
 
 class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends AbstractRTSSpec with GenIO with ScalaCheck {
+  import ArbitraryChunk._
+
   def is = "StreamSpec".title ^ s2"""
   PureStream.filter       $filter
   PureStream.dropWhile    $dropWhile
@@ -29,6 +31,10 @@ class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends Abstra
   Stream.mergeWith        $mergeWith
   Stream.scanM            $scanM
   Stream.transduce        $transduce
+  Stream.withEffect       $withEffect
+  Stream.zipWith          $zipWith
+  Stream.fromIterable     $fromIterable
+  Stream.fromChunk        $fromChunk
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -196,5 +202,32 @@ class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends Abstra
     val transduced = s.transduce(parser)
 
     slurpM(transduced) must_=== List(12, 34)
+  }
+
+  def withEffect = {
+    var sum = 0
+    val s = Stream(1, 1).withEffect(a => IO.sync(sum += a))
+    val slurped = slurp(s)
+
+    slurped must_=== List(1, 1) and (sum must_=== 2)
+  }
+
+  def zipWith = {
+    val s1 = Stream(1, 2, 3)
+    val s2 = Stream(1, 2)
+    val zipped = s1.zipWith(s2)((a, b) => a.flatMap(a => b.map(a + _)))
+
+    slurpM(zipped) must_=== List(2, 4)
+  }
+
+  def fromIterable = prop { (l: List[Int]) =>
+    val s = Stream.fromIterable(l)
+    slurpM(s) must_=== l and (slurp(s) must_=== l)
+  }
+
+  def fromChunk = prop { (c: Chunk[Int]) =>
+    val s = Stream.fromChunk(c)
+
+    slurpM(s) must_=== c.toSeq.toList and (slurp(s) must_=== c.toSeq.toList)
   }
 }
