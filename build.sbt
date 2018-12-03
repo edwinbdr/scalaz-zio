@@ -108,9 +108,9 @@ lazy val interopCatsLaws = project.module
   .settings(
     skip in publish := true,
     libraryDependencies ++= Seq(
-      "org.typelevel"              %% "cats-effect-laws"          % "1.0.0" % Test,
-      "org.typelevel"              %% "cats-testkit"              % "1.3.1" % Test,
-      "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8" % Test
+      "org.typelevel"              %% "cats-effect-laws"          % "1.0.0-1182d8c" % Test,
+      "org.typelevel"              %% "cats-testkit"              % "1.3.1"         % Test,
+      "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8"         % Test
     ),
     dependencyOverrides += "org.scalacheck" %% "scalacheck" % "1.13.5" % Test,
     scalacOptions in Test ++= Seq("-Yrangepos")
@@ -123,12 +123,12 @@ lazy val benchmarks = project.module
     skip in publish := true,
     libraryDependencies ++=
       Seq(
-        "org.scala-lang"    % "scala-reflect"  % scalaVersion.value,
-        "org.scala-lang"    % "scala-compiler" % scalaVersion.value % Provided,
-        "io.monix"          %% "monix"         % "3.0.0-RC1",
-        "org.typelevel"     %% "cats-effect"   % "1.0.0",
-        "co.fs2"            %% "fs2-core"      % "1.0.0",
-        "com.typesafe.akka" %% "akka-stream"   % "2.5.17"
+        "org.scala-lang" % "scala-reflect"   % scalaVersion.value,
+        "org.scala-lang" % "scala-compiler"  % scalaVersion.value % Provided,
+        "io.monix"       %% "monix"          % "3.0.0-RC1",
+        "org.typelevel"  %% "cats-effect"    % "1.0.0",
+        "co.fs2"         %% "fs2-core"       % "1.0.0",
+        "com.typesafe.akka" %% "akka-stream" % "2.5.17"
       )
   )
 
