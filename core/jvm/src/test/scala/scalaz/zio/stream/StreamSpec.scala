@@ -3,8 +3,12 @@ package scalaz.zio.stream
 import org.specs2.ScalaCheck
 import scala.{ Stream => _ }
 import scalaz.zio.{ AbstractRTSSpec, GenIO, IO }
+import scala.concurrent.duration._
 
 class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends AbstractRTSSpec with GenIO with ScalaCheck {
+
+  override val DefaultTimeout = 5.seconds
+
   import ArbitraryChunk._
 
   def is = "StreamSpec".title ^ s2"""
@@ -35,6 +39,7 @@ class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends Abstra
   Stream.zipWith          $zipWith
   Stream.fromIterable     $fromIterable
   Stream.fromChunk        $fromChunk
+  Stream.peel             $peel
   """
 
   def slurp[E, A](s: Stream[E, A]) = s match {
@@ -197,24 +202,35 @@ class StreamSpec(implicit ee: org.specs2.concurrent.ExecutionEnv) extends Abstra
   }
 
   def transduce = {
-    val s = Stream('1', '2', ',', '3', '4')
-    val parser = Sink.readWhile[Char](_.isDigit).map(_.mkString.toInt) <* Sink.readWhile(_ == ',')
+    val s          = Stream('1', '2', ',', '3', '4')
+    val parser     = Sink.readWhile[Char](_.isDigit).map(_.mkString.toInt) <* Sink.readWhile(_ == ',')
     val transduced = s.transduce(parser)
 
     slurpM(transduced) must_=== List(12, 34)
   }
 
+  def peel = {
+    val s      = Stream('1', '2', ',', '3', '4')
+    val parser = Sink.readWhile[Char](_.isDigit).map(_.mkString.toInt) <* Sink.readWhile(_ == ',')
+    val peeled = s.peel(parser).use {
+      case (n, rest) =>
+        IO.now((n, slurpM(rest)))
+    }
+
+    unsafeRun(peeled) must_=== ((12, List('3', '4')))
+  }
+
   def withEffect = {
-    var sum = 0
-    val s = Stream(1, 1).withEffect(a => IO.sync(sum += a))
+    var sum     = 0
+    val s       = Stream(1, 1).withEffect(a => IO.sync(sum += a))
     val slurped = slurp(s)
 
     slurped must_=== List(1, 1) and (sum must_=== 2)
   }
 
   def zipWith = {
-    val s1 = Stream(1, 2, 3)
-    val s2 = Stream(1, 2)
+    val s1     = Stream(1, 2, 3)
+    val s2     = Stream(1, 2)
     val zipped = s1.zipWith(s2)((a, b) => a.flatMap(a => b.map(a + _)))
 
     slurpM(zipped) must_=== List(2, 4)

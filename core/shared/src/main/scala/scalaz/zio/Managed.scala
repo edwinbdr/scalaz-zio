@@ -112,7 +112,7 @@ object Managed {
     new Managed[E, R] {
       type R0 = R
 
-      protected def acquire: IO[E, R] = IO.never
+      protected def acquire: IO[E, R] = fa
 
       protected def release: R => IO[Nothing, _] = _ => IO.unit
 
@@ -142,7 +142,7 @@ object Managed {
     new Managed[Nothing, R] {
       type R0 = R
 
-      protected def acquire: IO[Nothing, R] = IO.never
+      protected def acquire: IO[Nothing, R] = IO.now(r)
 
       protected def release: R => IO[Nothing, _] = _ => IO.unit
 
@@ -156,7 +156,7 @@ object Managed {
     new Managed[Nothing, R] {
       type R0 = R
 
-      protected def acquire: IO[Nothing, R] = IO.never
+      protected def acquire: IO[Nothing, R] = IO.point(r)
 
       protected def release: R => IO[Nothing, _] = _ => IO.unit
 

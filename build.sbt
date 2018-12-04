@@ -123,12 +123,12 @@ lazy val benchmarks = project.module
     skip in publish := true,
     libraryDependencies ++=
       Seq(
-        "org.scala-lang" % "scala-reflect"   % scalaVersion.value,
-        "org.scala-lang" % "scala-compiler"  % scalaVersion.value % Provided,
-        "io.monix"       %% "monix"          % "3.0.0-RC1",
-        "org.typelevel"  %% "cats-effect"    % "1.0.0",
-        "co.fs2"         %% "fs2-core"       % "1.0.0",
-        "com.typesafe.akka" %% "akka-stream" % "2.5.17"
+        "org.scala-lang"    % "scala-reflect"  % scalaVersion.value,
+        "org.scala-lang"    % "scala-compiler" % scalaVersion.value % Provided,
+        "io.monix"          %% "monix"         % "3.0.0-RC1",
+        "org.typelevel"     %% "cats-effect"   % "1.0.0",
+        "co.fs2"            %% "fs2-core"      % "1.0.0",
+        "com.typesafe.akka" %% "akka-stream"   % "2.5.17"
       )
   )
 
