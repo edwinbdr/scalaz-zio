@@ -429,9 +429,6 @@ trait Stream[+E, +A] { self =>
    * evaluates to `true`.
    */
   def takeWhile(pred: A => Boolean): Stream[E, A] = new Stream[E, A] {
-    override def fold[E1 >: E, A1 >: A, S](s: S)(f: (S, A1) => IO[E1, Step[S]]): IO[E1, Step[S]] =
-      self.fold[E1, A, S](s)((s, a) => if (pred(a)) f(s, a) else IO.now(Step.Stop(s)))
-
     override def foldLazy[E1 >: E, A1 >: A, S](s: S)(cont: S => Boolean)(f: (S, A1) => IO[E1, S]): IO[E1, S] =
       self
         .foldLazy[E1, A, (Boolean, S)](true -> s)(tp => tp._1 && cont(tp._2)) {
